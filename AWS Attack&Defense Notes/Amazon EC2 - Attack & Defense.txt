@@ -23,8 +23,8 @@ Output example:
 "Code" : "Success",
   "LastUpdated" : "2025-09-18T17:47:32Z",
   "Type" : "AWS-HMAC",
-  "AccessKeyId" : "ASIAXPLNRTHCYGZ3FFC7",
-  "SecretAccessKey" : "Qr26Rxt5jdrVm36+iWi6hY4pHGFuDuzbym2tljwU"
+  "AccessKeyId" : "ASIA*****************",
+  "SecretAccessKey" : "*-*-*-*-*-*-*"
 
 
 
@@ -53,8 +53,8 @@ OutputExample:
   "Code" : "Success",
   "LastUpdated" : "2025-09-18T17:47:02Z",
   "Type" : "AWS-HMAC",
-  "AccessKeyId" : "ASIAXPLNRTHCZRX3QDZO",
-  "SecretAccessKey" : "4sP8yTGy7Z1oVvTjPTTlGjmbTid6wv7B5QhioVxX",
+  "AccessKeyId" : "ASIA***************",
+  "SecretAccessKey" : "*-*-*-*-*-*-*",
 
 ------------------------------------------------------------------------------------------
 
