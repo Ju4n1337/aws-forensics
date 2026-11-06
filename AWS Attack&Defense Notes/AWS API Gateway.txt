@@ -84,7 +84,7 @@ Header value = authorizationToken:testing123
 
 With the previous Header value and using different paths /test/test or /test/admin
 Output: {"username": "test", "api_key": "testing123"}
-Output: {"username": "admin", "api_key": "2008951f220d4c8d9877bb979d560342"}
+Output: {"username": "admin", "api_key": "***************************"}
 
 References: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-use-lambda-authorizer.html
 https://github.com/ustayready/fireprox
