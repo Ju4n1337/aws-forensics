@@ -75,8 +75,8 @@ Move to another user with higher privileges for example the user Ashoka(Jedi)
  aws sts assume-role --role-arn arn:aws:iam::514015205829:role/jedi --role-session-name Ahsoka.
 
 Get the short-term credentials
- "AccessKeyId": "ASIAXPLNRTHC2L626NLC",
- "SecretAccessKey": "z5TgwN4aD3a7OHa7abOejulw4tBRsOJnhk9I8VNO",
+ "AccessKeyId": "ASIAX*****************",
+ "SecretAccessKey": "z5Tgw**********************",
 
 export and assume the role
 aws sts assume-role --role-arn arn:aws:iam::514015205829:role/jedi --role-session-name Ashoka --profile padawan
