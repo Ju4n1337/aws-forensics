@@ -1,0 +1,41 @@
+AWS VPC - Attack and Defense
+
+Introduction: AWS Virtual Private Cloud (VPC) is a software-defined-network construct in your AWS account. AWS VPCs are a regional construct. You need to create a VPC in every region you want to deploy VPC-based workloads. 
+
+VPC IDs used to be eight characters long, but in 2018 AWS extended them to be 17 characters long. You can tell older VPCs by the short identifier. 
+--------------------------------------------------------------------------------------------
+VPCs have two special route destinations - Internet Gateway (IGW) and Virtual Private Gateway (VGW). The IGW is the endpoint that acts as the border between the VPC and the Internet. The VGW is the endpoint that acts as the border between the VPC and on-premises networks.
+
+--------------------------------------------------------------------------------------------
+
+Listing all of the ENIs in an account
+Command: aws ec2 describe-network-interfaces
+
+--------------------------------------------------------------------------------------------
+VPC endpoints and privateLink
+
+VPC Endpoints require a route in the VPC Route Table. The destination for the route is an abstract representation of the service, known as a Managed Prefix List, rather than a specific CIDR Range.
+AWS uses Prefix Lists to map AWS CIDR Ranges into your VPC. These Prefix lists help AWS manage its public IP addresses without requiring customers to change their VPC Route tables or security groups. You can see the CIDR Ranges for the different services with the command:
+
+Command: aws ec2 describe-prefix-lists
+
+However, as an attacker, you could add a VPC endpoint as a way to exfiltrate data from a VPC into an S3 bucket you control. Remember that trick when you get to your AWS attack capstone project.
+
+VPC PrivateLink is an ENI in your VPC tied to an AWS Service or another AWS Customer. It provides a way for AWS or its partners to offer services to AWS customers without requiring customers to allow traffic out to the internet.
+--------------------------------------------------------------------------------------------
+DNS in VPC
+
+The VPC’s DNS server can also be configured to answer requests from other networks (including on-premises networks) and to forward requests to on-prem DNS servers. DNS is another lateral movement path where compromise of the cloud can lead to the compromise of the corporate on-premises networks.
+-------------------------------------------------------------------------------------------
+VPC Flow logs components
+
+2 123456789012 eni-abcdef 52.46.145.233 10.100.0.118 443 52688 6 21 7010 1637966883 1637966911 ACCEPT OK
+
+1) The first field is the Flow Log version number (which will always be 2 if you’re using the defaults). 
+2) Next is the AWS account and the ENI identified. 
+3) After that is the source and destination IP address, followed by the source and destination port. 
+4) 6 represents the protocol number (TCP). 
+5) 21 is the number of packets
+6) 7010 is the number of bytes. 
+7) The last four are the start and end times of the flow in Unix Epoch time
+8) The action (ACCEPT or REJECT), and the log status (usually OK).

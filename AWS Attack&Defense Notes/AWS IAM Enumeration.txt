@@ -1,0 +1,86 @@
+AWS IAM Enumeration 
+
+Introduction:
+IAM enumeration is a reconnaissance exercise that can be leveraged to attack an AWS cloud environment, and by using this technique, an attacker can gain a better understanding of the IAM landscape within an account without having access to it. AWS pen testers and red teamers commonly use this gathered “insider knowledge” to gain information about resources residing within an AWS environment in order to perform attacks against the target account.
+
+--------------------------------------------------------------------------------------------
+AWS IAM Enumeration Mechanics
+
+Some places in the AWS environment that could contain credentials:
+1) Environment Variables - users can set credentials using AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as environment variables.
+
+2) Shared Credentials File (~/.aws/credentials) - this is the most common place when storing IAM user access keys or SSO configurations for assuming roles.
+
+3) AWS Config file (~/.aws/config) - credential sources that reference helper scripts and other external credential providers are commonly referenced here.
+
+4) Assume Role Provider - the trick here is to know that when someone uses AWS SSO or another mechanism to assume a role via the AWS CLI, the AWS CLI tool caches credentials for each role session at ~/.aws/cli/cache/{role_session_id}.
+
+5) Boto2 config file - Boto2 is the predecessor version to Boto3 and might be used in legacy clients.
+
+6) Instance Metadata Service (IMDS) - on an Amazon EC2 instance that has an IAM role configured.
+
+Running this command should return the AWS account to which the access key belongs. Interestingly enough, you can perform this command unauthenticated.
+Command: aws sts get-access-key-info --access-key-id {access_key_id}
+
+
+When attempting to enumerate an IAM Principal via resource policy, you simply create the resource that supports a resource-based policy, and then update it to allow access for the Principal you want to test whether it exists. If the Principal does not exist, the update command will return an error message. If the Principal does exist, then you will not receive an error message, and the updated resource-policy will be implemented. For most types of resource-based policies, this consists of the Account IDs, IAM Roles, and IAM Users. Other types of Principals aren't enumerable using this method.
+
+-------------------------------------------------------------------------------------------
+Enumerating IAM Users and Roles
+
+Quiet Riot can be used for "unauthenticated" enumeration of AWS/Azure Active Directory/Google Workspace users/principals. The reason I use quotes around "unauthenticated" is because even though you don't have to be authenticated against the target you intend on scanning.
+
+Commands: pip3 install quiet-riot
+quiet_riot --help
+quiet_riot --scan 5
+
+Generate a wordlist of names with the follwoing script:
+#CODE BEGINS#
+
+#!/usr/bin/env python
+malenames = ['adam', 'john']
+with open('familynames-usa-top1000.txt', 'r') as f:
+    lastnames = f.read().splitlines()
+with open('test.txt', 'w') as f:
+    for i in malenames:
+        for j in lastnames:
+            first = i.lower()
+            last = j.lower()
+            f.write(f"{first}.{last}\n")
+            f.write(f"{first[0]}{last}\n")
+            f.write(f"{first}\n")
+            f.write(f"{first}_{last}\n")
+            f.write(f"{first}{last}\n")
+            f.write(f"{first}{j[0].lower()}\n")
+
+#CODE END#
+
+Save it as usernames.txt or you can download the following git: https://gist.githubusercontent.com/righteousgambit/72220f9b7296f83133240d06d9653c0a/raw/eea20d3390e01e5570018b222633336c6c13d3fd/Common%2520Adam%2520and%2520John%2520Usernames
+
+Commands: quiet_riot --scan 5 
+
+Then you will select option 1 or option 2, depending on whether you want to scan for roles or users. Roles are the more common pattern recently, but a lot of organizations are still deploying IAM users. Let's start with the roles. 
+
+Select ROLES 1
+Put the Account ID
+and RUN!!!
+
+*Download the results*
+Output of IAM Users (2): 
+arn:aws:iam::514015205829:user/john.cervantes
+arn:aws:iam::514015205829:user/adam.foreman
+
+References: https://github.com/righteousgambit/quiet-riot
+
+
+
+
+
+
+
+
+
+
+
+
+

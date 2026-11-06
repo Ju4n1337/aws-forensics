@@ -1,0 +1,76 @@
+AWS Lambda
+
+Introduction: "Serverless" is the concept that you, as the end-user, do not need to build or deploy any infrastructure to run a Lambda function. AWS manages all that for you. AWS claims you can "Simply write and upload code as a .zip file." In reality, each Lambda is a function that runs in its own container with multiple isolation layers between AWS customers. But all of that is abstracted away from the customer by AWS.
+
+"Event-driven" is what happens after you upload your code. All Lambda functions are triggered by an event. That event can be a manual invocation of the function or tied to other activities in the account.
+An event is anything triggers a Lambda function to run. There are two fundamental ways that events can trigger Lambda: through direct invocation (push) and event source mappings (pull).
+
+Because Lambda functions are event-driven, they have a few limitations. The most significant limitation is that a Lambda function can run for no longer than 15 minutes before it times out. 
+
+-------------------------------------------------------------------------------------------
+The Lambda Event model
+
+Lambda functions can be invoked synchronously or asynchronously. In a synchronous invocation, the caller waits for the function to finish executing before returning. With an asynchronous invocation, the caller sends the event but doesn't wait for the execution to complete. It's incumbent on the application designer to handle error conditions and the resulting output for these "fire and forget" invocations.
+
+*You can have multiple test events and give them unique names. You can even share the test events with other developers in the same AWS account.*
+
+Context: invoked_function_arn - arn:aws:lambda:us-east-1:514015205829:function:TryHackMeLambdaRoom-sample-function
+
+--------------------------------------------------------------------------------------------
+Components of Lambda
+
+1) Code
+2) Test events
+3) Memory and Timeout
+4) Runtimes
+Every Lambda function has a selected runtime. NodeJS and Python are the most popular runtimes
+
+5)Role
+The Execution Role is like an IAM Instance profile. 
+
+
+6) Environment Variables
+AWS Lambda allows configuring environment variables as part of the Lambda runtime. This allows developers to use the same code zip file across multiple environments (dev, test, prod). 
+
+
+7) Invocation Policy
+In addition to the execution role, a Lambda function can have a resource-based policy that defines who or what can call the lambda:InvokeFunction call on the function. 
+
+8) Logging
+9) VPC
+
+10) Concurrency and Throttling
+AWS implements concurrency limits on function executions. An AWS account will support 1000 simultaneous Lambda executions in each region by default. Lambda developers can also set a throttling limit on a per-function basis to not exceed the scaling capacity of resources the function relies on.
+
+11) EFS
+A recent addition to Lambda is the ability to mount an Elastic FileSystem into the function. Amazon Elastic File System (EFS) is AWS's managed Network File System (NFS) service. It allows EC2 Instances, Containers, and Lambda functions to share a common filesystem. 
+
+12) Lambda Layers
+Rather than embedding the same set of code and libraries in multiple zip files across potentially hundreds or thousands of functions, AWS Lambda has the concept of a Lambda Layer. The layer is expanded and is available to the runtime when the execution environment is created. 
+
+13) Lambda Function URLs
+AWS recently introduced Lambda function URLs. These are dedicated HTTPS endpoints to your function, allowing it to be invoked over the internet. The URLs are in the form of:
+
+https://<url-id>.lambda-url.<region>.on.aws where the url-id is a unique identifier. AWS states: 
+
+--------------------------------------------------------------------------------------------
+Attack basics in Lambda
+
+Using the Location, like the following 
+ "Location": "https://prod-04-2014-tasks.s3.us-east-1.amazonaws.com/snapshots/019181489476/sample-lambda-b50b210d-a0d5-41e3-9b89-ce34f13a07bd?versionId=4yhnApoC_hJFH5Y9YSYiOd8eaonXYoYW&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEK3%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaCXVzLWVhc3QtMSJHMEUCIQCtEimjiVP1wDP344Q%2FgA7%2Byk7oZlhq68BFjkrT0GVPRgIgQtrZC4tOPjrKIvRCAcDlXwinhKl5pZbmBoBJZqghFhkqiQIINRAAGgw3NDk2Nzg5MDI4MzkiDCLo6tuhNF0Cp7q22SrmAUP%2F2tTiAh%2F0CMC4MCl%2BQQhWiXPpWNZW%2BImF6sGKzktNvcuC12BI8MwllzKVzsvcPv32mQAMyD5WgMvxD7yK598OXbocdPr5MHtQ%2FLQi1cGj2oZUahZ5i4u6fT7I%2BZm0Vle9FdooJ6Av7%2B6jz%2FHi%2Frdx1SYU98yYeUpiVUege6N8GGWfi0i3l1XdBg2eFxaD%2Fl6%2Frsq4VdOb5XQMHEX7zFU32%2BoeHgPaKW8%2BWKMdr8rdb62I46n6Sf7lU9ePwRBzrGI3eeOeqFdGBAP1YqGaf%2FrvWkWzT%2FsSQAlQvbSvkZDAHjN5vn55MJfdxsYGOo8BzwF9tWc%2BLg5RlrVFBCxDvcUG%2BucrAsgMn5NZRTq0loqOZcdrn%2B289Eqto7i4Adc9kDQyS7nOznjKQypCZE%2FkUVAnNu23FL0MycRBLCSKkGsFXOhZTiUmONXlcL2TU7yK%2FixVASdnYUSduInE5grL2X1mMbFmBMoMBe20MSgGq%2Bc2uL94XxCa6IBF2O8dhh0%3D&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=20250922T235830Z&X-Amz-SignedHeaders=host&X-Amz-Expires=599&X-Amz-Credential=ASIA25DCYHY35FBTHH6F%2F20250922%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Signature=970387b19d11d303d6b5f059232e6c0223c64acc1db021569ee3bd7cb6181b3d"
+
+Use curl to download the files 
+curl "location" -o lambda.zip
+
+--------------------------------------------------------------------------------------------
+List contents from a specific lambda function
+Command: aws lambda get-policy --query Policy --output text --function-name
+
+Example Output:
+{"Version":"2012-10-17","Id":"default","Statement":[{"Sid":"StackSet-understanding-lambda-4805e866-27dd-4776-b826-b42f1485d3-SampleLambdaPermission-uBi70pGsfba3","Effect":"Allow","Principal":"*","Action":"lambda:InvokeFunction","Resource":"arn:aws:lambda:us-east-1:514015205829:function:TryHackMeLambdaRoom-sample-function","Condition":{"StringEquals":{"aws:PrincipalOrgID":"o-ad4l00k0ts"}}},{"Sid":"StackSet-understanding-lambda-4805e866-27dd-4776-b826-b-ReallyBadSampleLambdaPermission-TQfMS2gjBX9P","Effect":"Allow","Principal":"*","Action":"lambda:UpdateFunctionCode","Resource":"arn:aws:lambda:us-east-1:514015205829:function:TryHackMeLambdaRoom-sample-function","Condition":{"StringEquals":{"AWS:SourceAccount":"514015205829"}}}]}
+
+Invoke lambda function
+aws lambda invoke LAMBDA_NAME or use the TEST in the Lambda page
+
+
+References: https://docs.aws.amazon.com/lambda/latest/dg/concepts-event-driven-architectures.html

