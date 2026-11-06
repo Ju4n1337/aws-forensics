@@ -9,7 +9,7 @@ Obtain the password complexity policy
 Command: aws iam get-account-password-policy
 ---------------------------------------------------------------------------------------------
 Create a user with an specific password
-Command: aws iam create-login-profile --user TryHackMe-IAM-User --password 'SolarWinds321!'
+Command: aws iam create-login-profile --user TryHackMe-IAM-User --password '********'
 ---------------------------------------------------------------------------------------------
 API Access Keys
 There are two types of access keys: Long Term and Temporary Session keys.
@@ -72,14 +72,14 @@ export AWS_ACCESS_KEY_ID=AKIAZOEXAMPLE
 The aws sts get-caller-identity command is the AWS equivalent of the Unix command whoami.
 
 Move to another user with higher privileges for example the user Ashoka(Jedi)
- aws sts assume-role --role-arn arn:aws:iam::514015205829:role/jedi --role-session-name Ahsoka.
+ aws sts assume-role --role-arn arn:aws:iam::*********:role/jedi --role-session-name Ahsoka.
 
 Get the short-term credentials
  "AccessKeyId": "ASIAX*****************",
  "SecretAccessKey": "z5Tgw**********************",
 
 export and assume the role
-aws sts assume-role --role-arn arn:aws:iam::514015205829:role/jedi --role-session-name Ashoka --profile padawan
+aws sts assume-role --role-arn arn:aws:iam::***************:role/jedi --role-session-name Ashoka --profile padawan
 
 In AWS, when you see a resource identifier starting with AROA, it refers to a role ARN from AWS STS
 
