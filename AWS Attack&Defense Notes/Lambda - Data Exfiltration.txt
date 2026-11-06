@@ -268,7 +268,7 @@ Command: aws sts get-caller-identity
 
 Output:
 {
-    "UserId": "AROAXPLNRTHCUYIFXIQYX:list-images",
+    "UserId": "AROA*************:list-images",
     "Account": "514015205829",
     "Arn": "arn:aws:sts::514015205829:assumed-role/MordorTravel-ReadImageBucket/list-images"
 }
